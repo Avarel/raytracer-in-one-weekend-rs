@@ -1,5 +1,5 @@
 use crate::material::Material;
-use crate::hittable::HitRecord;
+use crate::model::Hit;
 use crate::vec3::Vec3;
 use crate::ray::Ray;
 
@@ -18,7 +18,7 @@ impl<'mat> Sphere<'mat> {
         }
     }
 
-    pub fn hit(&self, ray: &Ray<f64>, t_min: f64, t_max: f64) -> Option<HitRecord<'mat, f64>> {
+    pub fn hit(&self, ray: &Ray<f64>, t_min: f64, t_max: f64) -> Option<Hit<'mat, f64>> {
         let oc = ray.origin - self.center;
         let a = ray.direction.dot(ray.direction);
         let b = oc.dot(ray.direction);
@@ -32,7 +32,7 @@ impl<'mat> Sphere<'mat> {
             if t_min < parameter && parameter < t_max {
                 let point = ray.point_at_parameter(parameter);
 
-                return Some(HitRecord {
+                return Some(Hit {
                     parameter,
                     point,
                     normal: (point - self.center) / self.radius,
@@ -45,7 +45,7 @@ impl<'mat> Sphere<'mat> {
             if t_min < parameter && parameter < t_max {
                 let point = ray.point_at_parameter(parameter);
 
-                return Some(HitRecord {
+                return Some(Hit {
                     parameter,
                     point,
                     normal: (point - self.center) / self.radius,

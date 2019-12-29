@@ -1,13 +1,13 @@
 mod camera;
-mod hittable;
 mod material;
+mod model;
 mod ray;
 mod sphere;
 mod vec3;
 
 use camera::Camera;
-use hittable::Hittable;
-use material::Material;
+use material::{Material, Scatter};
+use model::Model;
 use ray::Ray;
 use vec3::{vec3, Vec3};
 
@@ -24,17 +24,19 @@ fn main() -> io::Result<()> {
     let mat_2 = Material::lambertian(vec3(0.8, 0.8, 0.0));
     let mat_3 = Material::metal(vec3(0.8, 0.6, 0.2), 0.0);
     let mat_4 = Material::dielectric(1.5);
-    let world = Hittable::list(vec![
-        Hittable::sphere(vec3(0.0, 0.0, -1.0), 0.5, &mat_1),
-        Hittable::sphere(vec3(0.0, -100.5, -1.0), 100.0, &mat_2),
-        Hittable::sphere(vec3(1.0, 0.0, -1.0), 0.5, &mat_3),
-        Hittable::sphere(vec3(-1.0, 0.0, -1.0), 0.5, &mat_4),
-        Hittable::sphere(vec3(-1.0, 0.0, -1.0), -0.40, &mat_4),
+    let mat_5 = Material::diffuse_light(vec3(1.0, 0.9, 0.4));
+    let world = Model::list(vec![
+        Model::sphere(vec3(0.0, -0.3, -1.0), 0.2, &mat_1),
+        Model::sphere(vec3(0.0, -100.5, -1.0), 100.0, &mat_2),
+        Model::sphere(vec3(1.0, 0.0, -1.0), 0.5, &mat_3),
+        Model::sphere(vec3(-1.0, 0.0, -1.0), 0.5, &mat_4),
+        Model::sphere(vec3(-1.0, 0.0, -1.0), -0.40, &mat_5),
+        Model::sphere(vec3(-1.0, 5.0, -1.0), -0.40, &mat_5),
     ]);
 
     let nx = 900u32;
     let ny = 600u32;
-    let ns = 100u32;
+    let ns = 500u32;
 
     let total_size = nx * ny;
 
@@ -43,7 +45,7 @@ fn main() -> io::Result<()> {
         .template("Rendering {spinner:.green} [{elapsed_precise}] {percent:>3}% [{bar:40.cyan/blue}] {pos}/{len} pixels ({per_sec} | {eta})")
         .progress_chars("#>-"));
 
-    let look_from = vec3(3.0, 3.0, 2.0);
+    let look_from = vec3(-3.0, 3.0, 2.0);
     let look_at = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (look_from - look_at).length();
     let aperture = 0.0;
@@ -73,9 +75,9 @@ fn main() -> io::Result<()> {
                         })
                         .map(|(u, v)| camera.get_ray(u, v))
                         .map(|ray| color(ray, &world))
-                        .reduce(|| Vec3::default(), |a, b| a + b);
+                        .reduce(|| Vec3::ZERO, |a, b| a + b);
                     pb.inc(1);
-                    col = 255.99 * (col / f64::from(ns)).sqrt();
+                    col = 255.99 * (col / f64::from(ns)).sqrt().coerce();
                     (i, j, Rgb([col.x as u8, col.y as u8, col.z as u8]))
                 })
                 .collect::<Vec<_>>()
@@ -98,24 +100,32 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn color(mut ray: Ray<f64>, world: &Hittable) -> Vec3<f64> {
-    let mut factor = Vec3::new(1.0, 1.0, 1.0);
+fn color(mut ray: Ray<f64>, world: &Model) -> Vec3<f64> {
+    let mut factor = Vec3::ID;
+    let mut emit = Vec3::ZERO;
     let depth = 0;
 
     while let Some(rec) = world.hit(&ray, 0.00001, std::f64::MAX) {
         if depth >= 50 {
-            return Vec3::default();
-        } else if let Some((scattered, attenuation)) = rec.material.scatter(ray, rec) {
+            return Vec3::ZERO;
+        } else if let Some(Scatter {
+            scattered,
+            attenuation,
+        }) = rec.material.scatter(ray, &rec)
+        {
             ray = scattered;
-            factor = attenuation * factor;
+            factor *= attenuation;
+            
+            emit += rec.material.emit(rec);
         } else {
-            return Vec3::default();
+            return factor * rec.material.emit(rec);
         }
     }
 
-    let unit_direction = ray.direction.unit();
-    let t = 0.5 * (unit_direction.y + 1.0);
-    let sky_color = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+    // let unit_direction = ray.direction.unit();
+    // let t = 0.5 * (unit_direction.y + 1.0);
+    // let sky_color = (1.0 - t) * Vec3::ID + t * vec3(0.5, 0.7, 1.0);
+    let sky_color = Vec3::ZERO;
 
-    factor * sky_color
+    factor * (emit + sky_color)
 }

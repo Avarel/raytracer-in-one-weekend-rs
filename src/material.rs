@@ -1,6 +1,11 @@
-use crate::hittable::HitRecord;
+use crate::model::Hit;
 use crate::ray::Ray;
-use crate::vec3::{Vec3, vec3};
+use crate::vec3::{vec3, Vec3};
+
+pub struct Scatter {
+    pub scattered: Ray<f64>,
+    pub attenuation: Vec3<f64>,
+}
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -8,6 +13,7 @@ pub enum Material {
     Lambertian(Lambertian),
     Metal(Metal),
     Dielectric(Dielectric),
+    DiffuseLight(DiffuseLight),
 }
 
 impl Material {
@@ -23,16 +29,23 @@ impl Material {
         Self::Dielectric(Dielectric::new(ref_idx))
     }
 
-    // (scattered ray, attenuation direction)
-    pub fn scatter(
-        &self,
-        r_in: Ray<f64>,
-        rec: HitRecord<'_, f64>,
-    ) -> Option<(Ray<f64>, Vec3<f64>)> {
+    pub fn diffuse_light(emittance: Vec3<f64>) -> Self {
+        Self::DiffuseLight(DiffuseLight::new(emittance))
+    }
+
+    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
         match self {
             Material::Lambertian(mat) => mat.scatter(r_in, rec),
             Material::Metal(mat) => mat.scatter(r_in, rec),
             Material::Dielectric(mat) => mat.scatter(r_in, rec),
+            _ => None,
+        }
+    }
+
+    pub fn emit(&self, rec: Hit<f64>) -> Vec3<f64> {
+        match self {
+            Material::DiffuseLight(mat) => mat.emit(rec),
+            _ => Vec3::ZERO
         }
     }
 }
@@ -40,9 +53,9 @@ impl Material {
 fn random_in_unit_sphere() -> Vec3<f64> {
     let mut position: Vec3<f64>;
 
-    position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - vec3(1.0, 1.0, 1.0);
+    position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - Vec3::ID;
     while position.squared_length() >= 1.0 {
-        position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - vec3(1.0, 1.0, 1.0);
+        position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - Vec3::ID;
     }
 
     position
@@ -62,10 +75,13 @@ impl Lambertian {
         Self { albedo }
     }
 
-    pub fn scatter(&self, _: Ray<f64>, rec: HitRecord<'_, f64>) -> Option<(Ray<f64>, Vec3<f64>)> {
+    pub fn scatter(&self, _: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
         let target = rec.point + rec.normal + random_in_unit_sphere();
         let scattered = Ray::new(rec.point, target - rec.point);
-        Some((scattered, self.albedo))
+        Some(Scatter {
+            scattered,
+            attenuation: self.albedo,
+        })
     }
 }
 
@@ -83,11 +99,14 @@ impl Metal {
         }
     }
 
-    pub fn scatter(&self, r_in: Ray<f64>, rec: HitRecord<'_, f64>) -> Option<(Ray<f64>, Vec3<f64>)> {
+    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
         let target = reflect(r_in.direction.unit(), rec.normal);
         let scattered = Ray::new(rec.point, target + random_in_unit_sphere() * self.fuzz);
         if scattered.direction.dot(rec.normal) > 0.0 {
-            Some((scattered, self.albedo))
+            Some(Scatter {
+                scattered,
+                attenuation: self.albedo,
+            })
         } else {
             None
         }
@@ -105,7 +124,7 @@ impl Dielectric {
         Self { ref_idx }
     }
 
-    pub fn scatter(&self, r_in: Ray<f64>, rec: HitRecord<'_, f64>) -> Option<(Ray<f64>, Vec3<f64>)> {
+    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
         let outward_normal;
         let ni_over_nt;
         let cosine;
@@ -129,11 +148,14 @@ impl Dielectric {
             1.0
         };
 
-        Some((if rand::random::<f64>() < reflect_probability {
-            Ray::new(rec.point, reflect(r_in.direction, rec.normal))
-        } else {
-            Ray::new(rec.point, refract_result.unwrap_or_default())
-        }, vec3(1.0, 1.0, 1.0)))
+        Some(Scatter {
+            scattered: if rand::random::<f64>() < reflect_probability {
+                Ray::new(rec.point, reflect(r_in.direction, rec.normal))
+            } else {
+                Ray::new(rec.point, refract_result.unwrap_or_default())
+            },
+            attenuation: Vec3::ID,
+        })
     }
 
     fn schlick(cosine: f64, ref_idx: f64) -> f64 {
@@ -151,5 +173,20 @@ impl Dielectric {
         } else {
             None
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct DiffuseLight {
+    emittance: Vec3<f64>,
+}
+
+impl DiffuseLight {
+    pub fn new(emittance: Vec3<f64>) -> Self {
+        Self { emittance }
+    }
+
+    pub fn emit(&self, _: Hit<f64>) -> Vec3<f64> {
+        self.emittance
     }
 }

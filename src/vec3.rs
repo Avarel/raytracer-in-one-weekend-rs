@@ -36,6 +36,9 @@ impl<T: Default> Default for Vec3<T> {
 }
 
 impl Vec3<f64> {
+    pub const ZERO: Vec3<f64> = Vec3::new(0.0, 0.0, 0.0);
+    pub const ID: Vec3<f64> = Vec3::new(1.0, 1.0, 1.0);
+
     #[inline]
     pub fn length(self) -> f64 {
         self.squared_length().sqrt()
@@ -60,6 +63,11 @@ impl Vec3<f64> {
     #[inline]
     pub fn round(self) -> Self {
         Self::new(self.x.floor(), self.y.floor(), self.z.floor())
+    }
+
+    #[inline]
+    pub fn coerce(self) -> Self {
+        Self::new(self.x.max(0.0).min(1.0), self.y.max(0.0).min(1.0), self.z.max(0.0).min(1.0))
     }
 }
 
