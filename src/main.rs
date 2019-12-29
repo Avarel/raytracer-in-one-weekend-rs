@@ -29,9 +29,9 @@ fn main() -> io::Result<()> {
         Model::sphere(vec3(0.0, -0.3, -1.0), 0.2, &mat_1),
         Model::sphere(vec3(0.0, -100.5, -1.0), 100.0, &mat_2),
         Model::sphere(vec3(1.0, 0.0, -1.0), 0.5, &mat_3),
-        Model::sphere(vec3(-1.0, 0.0, -1.0), 0.5, &mat_4),
-        Model::sphere(vec3(-1.0, 0.0, -1.0), -0.40, &mat_5),
-        Model::sphere(vec3(-1.0, 5.0, -1.0), -0.40, &mat_5),
+        Model::sphere(vec3(0.0, 0.0, -2.0), 0.5, &mat_4),
+        Model::sphere(vec3(-1.0, 0.0, -1.0), 0.40, &mat_5),
+        Model::sphere(vec3(-1.0, 5.0, -1.0), 0.40, &mat_5),
     ]);
 
     let nx = 900u32;
