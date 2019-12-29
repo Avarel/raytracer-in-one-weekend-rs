@@ -63,10 +63,6 @@ fn main() -> io::Result<()> {
 
     let mut buf: RgbImage = ImageBuffer::new(nx, ny);
 
-    // use std::cell::UnsafeCell;
-
-    // let buf: UnsafeCell<RgbImage> = UnsafeCell::new(ImageBuffer::new(nx, ny));
-
     (0..ny)
         .into_par_iter()
         .flat_map(|j| {
@@ -92,9 +88,6 @@ fn main() -> io::Result<()> {
         })
         .collect::<Vec<_>>().into_iter()
         .for_each(|(x, y, pixel)| buf.put_pixel(x, y, pixel));
-        // .for_each(|(x, y, pixel)| unsafe { &mut *buf.get() }.put_pixel(x, y, pixel));
-
-    // unsafe { &*buf.get() }.save("./output/default.png")?;
 
     Ok(())
 }
