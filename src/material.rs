@@ -6,10 +6,17 @@ use crate::vec3::{vec3, Vec3};
 // material with a certain direction and some attenuation.
 pub struct Scatter {
     // The direction of the bounced ray of light.
-    pub scattered: Ray<f64>,
+    pub scattered: Ray,
     // The vector representing the RGB emitted
     // after a bounce on the material.
-    pub attenuation: Vec3<f64>,
+    pub attenuation: Vec3,
+}
+
+impl Scatter {
+    pub const ZERO: Scatter = Scatter {
+        scattered: Ray::ZERO,
+        attenuation: Vec3::ZERO,
+    };
 }
 
 // Material enum, using this so we can avoid dynamic dispatch.
@@ -25,12 +32,12 @@ pub enum Material {
 impl Material {
     // Convenience method to construct a lambertian reflectance
     // or matte material.
-    pub fn lambertian(albedo: Vec3<f64>) -> Self {
+    pub fn lambertian(albedo: Vec3) -> Self {
         Self::Lambertian(Lambertian::new(albedo))
     }
 
     // Convenience method to construct a reflective or metal material.
-    pub fn metal(albedo: Vec3<f64>, fuzz: f64) -> Self {
+    pub fn metal(albedo: Vec3, fuzz: f64) -> Self {
         Self::Metal(Metal::new(albedo, fuzz))
     }
 
@@ -40,25 +47,25 @@ impl Material {
     }
 
     // Convenience method to construct a diffuse light material.
-    pub fn diffuse_light(emittance: Vec3<f64>) -> Self {
+    pub fn diffuse_light(emittance: Vec3) -> Self {
         Self::DiffuseLight(DiffuseLight::new(emittance))
     }
 
     // Process an incoming ray and return an option indicating if that ray
     // has been scattered or completely absorbed.
-    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
+    pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
         match self {
             Material::Lambertian(mat) => mat.scatter(r_in, rec),
             Material::Metal(mat) => mat.scatter(r_in, rec),
             Material::Dielectric(mat) => mat.scatter(r_in, rec),
-            _ => None,
+            _ => Scatter::ZERO,
         }
     }
 
     // Get what the material emits.
     // This method assumes that the ray has already hit the object with
     // this material.
-    pub fn emit(&self, rec: Hit<f64>) -> Vec3<f64> {
+    pub fn emit(&self, rec: Hit) -> Vec3 {
         match self {
             Material::DiffuseLight(mat) => mat.emit(rec),
             _ => Vec3::ZERO
@@ -67,7 +74,7 @@ impl Material {
 }
 
 // Generate a random point *inside* a unit sphere.
-fn random_in_unit_sphere() -> Vec3<f64> {
+fn random_in_unit_sphere() -> Vec3 {
     let u = rand::random::<f64>();
     let v = rand::random::<f64>();
     let theta = u * 2.0 * std::f64::consts::PI;
@@ -84,56 +91,56 @@ fn random_in_unit_sphere() -> Vec3<f64> {
 }
 
 // Return a reflected direction given a normal direction on the object.
-fn reflect(v: Vec3<f64>, normal: Vec3<f64>) -> Vec3<f64> {
+fn reflect(v: Vec3, normal: Vec3) -> Vec3 {
     v - v.dot(normal) * normal * 2.0
 }
 
 // Lambertian reflective or matte material.
 #[derive(Debug)]
 pub struct Lambertian {
-    albedo: Vec3<f64>,
+    albedo: Vec3,
 }
 
 impl Lambertian {
-    pub fn new(albedo: Vec3<f64>) -> Self {
+    pub fn new(albedo: Vec3) -> Self {
         Self { albedo }
     }
 
-    pub fn scatter(&self, _: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
+    pub fn scatter(&self, _: Ray, rec: &Hit) -> Scatter {
         let target = rec.point + rec.normal + random_in_unit_sphere();
         let scattered = Ray::new(rec.point, target - rec.point);
-        Some(Scatter {
+        Scatter {
             scattered,
             attenuation: self.albedo,
-        })
+        }
     }
 }
 
 // Reflective or metal material.
 #[derive(Debug)]
 pub struct Metal {
-    albedo: Vec3<f64>,
+    albedo: Vec3,
     fuzz: f64,
 }
 
 impl Metal {
-    pub fn new(albedo: Vec3<f64>, fuzz: f64) -> Self {
+    pub fn new(albedo: Vec3, fuzz: f64) -> Self {
         Self {
             albedo,
             fuzz: if fuzz < 1.0 { fuzz } else { 1.0 },
         }
     }
 
-    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
+    pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
         let target = reflect(r_in.direction.unit(), rec.normal);
         let scattered = Ray::new(rec.point, target + random_in_unit_sphere() * self.fuzz);
         if scattered.direction.dot(rec.normal) > 0.0 {
-            Some(Scatter {
+            Scatter {
                 scattered,
                 attenuation: self.albedo,
-            })
+            }
         } else {
-            None
+            Scatter::ZERO
         }
     }
 }
@@ -150,7 +157,7 @@ impl Dielectric {
         Self { ref_idx }
     }
 
-    pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
+    pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
         let outward_normal;
         let ni_over_nt;
         let cosine;
@@ -174,14 +181,14 @@ impl Dielectric {
             1.0
         };
 
-        Some(Scatter {
+        Scatter {
             scattered: if rand::random::<f64>() < reflect_probability {
                 Ray::new(rec.point, reflect(r_in.direction, rec.normal))
             } else {
                 Ray::new(rec.point, refract_result.unwrap_or_default())
             },
             attenuation: Vec3::ID,
-        })
+        }
     }
 
     fn schlick(cosine: f64, ref_idx: f64) -> f64 {
@@ -190,7 +197,7 @@ impl Dielectric {
         r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
     }
 
-    fn refract(v: Vec3<f64>, normal: Vec3<f64>, ni_over_nt: f64) -> Option<Vec3<f64>> {
+    fn refract(v: Vec3, normal: Vec3, ni_over_nt: f64) -> Option<Vec3> {
         let uv = v.unit();
         let dt = uv.dot(normal);
         let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
@@ -205,15 +212,15 @@ impl Dielectric {
 // Diffuse light-emitting material.
 #[derive(Debug)]
 pub struct DiffuseLight {
-    emittance: Vec3<f64>,
+    emittance: Vec3,
 }
 
 impl DiffuseLight {
-    pub fn new(emittance: Vec3<f64>) -> Self {
+    pub fn new(emittance: Vec3) -> Self {
         Self { emittance }
     }
 
-    pub fn emit(&self, _: Hit<f64>) -> Vec3<f64> {
+    pub fn emit(&self, _: Hit) -> Vec3 {
         self.emittance
     }
 }

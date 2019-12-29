@@ -17,6 +17,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
 use std::io;
+use std::convert::TryFrom;
 
 fn main() -> io::Result<()> {
     // Construct the scene.
@@ -86,13 +87,16 @@ fn main() -> io::Result<()> {
                 })
                 .collect::<Vec<_>>()
         })
-        .collect::<Vec<_>>().into_iter()
+        .collect::<Vec<_>>()
+        .into_iter()
         .for_each(|(x, y, pixel)| buf.put_pixel(x, y, pixel));
+
+    buf.save("./output/default.png")?;
 
     Ok(())
 }
 
-fn color(mut ray: Ray<f64>, world: &Model) -> Vec3<f64> {
+fn color(mut ray: Ray, world: &Model) -> Vec3 {
     let mut factor = Vec3::ID;
     let mut emit = Vec3::ZERO;
     let depth = 0;
@@ -100,18 +104,21 @@ fn color(mut ray: Ray<f64>, world: &Model) -> Vec3<f64> {
     while let Some(rec) = world.hit(&ray, 0.00001, std::f64::MAX) {
         if depth >= 50 {
             return Vec3::ZERO;
-        } else if let Some(Scatter {
+        }
+
+        let Scatter {
             scattered,
             attenuation,
-        }) = rec.material.scatter(ray, &rec)
-        {
-            ray = scattered;
-            factor *= attenuation;
-            
-            emit += rec.material.emit(rec);
-        } else {
+        } = rec.material.scatter(ray, &rec);
+
+        if scattered == Ray::ZERO || attenuation == Vec3::ZERO {
             return factor * rec.material.emit(rec);
         }
+
+        ray = scattered;
+        factor *= attenuation;
+
+        emit += rec.material.emit(rec);
     }
 
     // let unit_direction = ray.direction.unit();

@@ -5,10 +5,10 @@ use crate::vec3::Vec3;
 // If this is returned, then it means that the ray of light hit the object
 // for some parameter at a point. The normal and material of the object
 // is also returned.
-pub struct Hit<'mat, T> {
-    pub parameter: T,
-    pub point: Vec3<T>,
-    pub normal: Vec3<T>,
+pub struct Hit<'mat> {
+    pub parameter: f64,
+    pub point: Vec3,
+    pub normal: Vec3,
     pub material: &'mat Material,
 }
 
@@ -21,7 +21,7 @@ pub enum Model<'mat> {
 
 impl<'mat> Model<'mat> {
     // Convenience method to construct a sphere.
-    pub fn sphere(center: Vec3<f64>, radius: f64, material: &'mat Material) -> Self {
+    pub fn sphere(center: Vec3, radius: f64, material: &'mat Material) -> Self {
         Model::Sphere(Sphere::new(center, radius, material))
     }
 
@@ -31,7 +31,7 @@ impl<'mat> Model<'mat> {
     }
 
     // Test if the ray of light hits the object(s) within a certain parameter range.
-    pub fn hit(&self, ray: &Ray<f64>, t_min: f64, t_max: f64) -> Option<Hit<f64>> {
+    pub fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
         match self {
             Model::Sphere(s) => s.hit(ray, t_min, t_max),
             Model::List(list) => {
@@ -54,13 +54,13 @@ impl<'mat> Model<'mat> {
 
 // A very round boy.
 pub struct Sphere<'mat> {
-    center: Vec3<f64>,
+    center: Vec3,
     radius: f64,
     material: &'mat Material,
 }
 
 impl<'mat> Sphere<'mat> {
-    pub fn new(center: Vec3<f64>, radius: f64, material: &'mat Material) -> Self {
+    pub fn new(center: Vec3, radius: f64, material: &'mat Material) -> Self {
         Self {
             center,
             radius,
@@ -68,7 +68,7 @@ impl<'mat> Sphere<'mat> {
         }
     }
 
-    pub fn hit(&self, ray: &Ray<f64>, t_min: f64, t_max: f64) -> Option<Hit<'mat, f64>> {
+    pub fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
         // Quadratic formula this boy.
         let oc = ray.origin - self.center;
         let a = ray.direction.dot(ray.direction);

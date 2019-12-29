@@ -1,22 +1,23 @@
 use crate::vec3::Vec3;
-use std::ops::{Add, Mul};
 
 // A ray with an origin and direction vector.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ray<T> {
-    pub origin: Vec3<T>,
-    pub direction: Vec3<T>,
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct Ray {
+    pub origin: Vec3,
+    pub direction: Vec3,
 }
 
-impl<T> Ray<T> {
-    pub fn new(origin: Vec3<T>, direction: Vec3<T>) -> Self {
+impl Ray {
+    pub const ZERO: Ray = Ray {
+        origin: Vec3::ZERO,
+        direction: Vec3::ZERO,
+    };
+
+    pub fn new(origin: Vec3, direction: Vec3) -> Self {
         Self { origin, direction }
     }
-}
 
-impl<T: Mul<Output = T> + Add<Output = T> + Mul<T, Output = T> + Copy> Ray<T> {
-    #[inline]
-    pub fn point_at_parameter(self, parameter: T) -> Vec3<T> {
+    pub fn point_at_parameter(self, parameter: f64) -> Vec3 {
         self.origin + self.direction * parameter
     }
 }

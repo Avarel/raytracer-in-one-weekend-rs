@@ -2,24 +2,24 @@ use crate::ray::Ray;
 use crate::vec3::{vec3, Vec3};
 
 pub struct Camera {
-    top_left_corner: Vec3<f64>,
-    horizontal: Vec3<f64>,
-    vertical: Vec3<f64>,
-    origin: Vec3<f64>,
-    u: Vec3<f64>,
-    v: Vec3<f64>,
-    _w: Vec3<f64>,
+    top_left_corner: Vec3,
+    horizontal: Vec3,
+    vertical: Vec3,
+    origin: Vec3,
+    u: Vec3,
+    v: Vec3,
+    _w: Vec3,
     lens_radius: f64,
 }
 
 impl Camera {
     pub fn new(
         // Position of the camera.
-        look_from: Vec3<f64>,
+        look_from: Vec3,
         // The position the camera is focusing on.
-        look_at: Vec3<f64>,
+        look_at: Vec3,
         // Up reference vector.
-        v_up: Vec3<f64>,
+        v_up: Vec3,
         // Vertical
         v_fov: f64,
         // Aspect ratio.
@@ -50,7 +50,7 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(&self, s: f64, t: f64) -> Ray<f64> {
+    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
         let rd = Self::random_in_unit_disk() * self.lens_radius;
         let offset = self.u * rd.x + self.v * rd.y;
         Ray::new(
@@ -59,7 +59,7 @@ impl Camera {
         )
     }
 
-    fn random_in_unit_disk() -> Vec3<f64> {
+    fn random_in_unit_disk() -> Vec3 {
         let theta = rand::random::<f64>() * 2.0 * std::f64::consts::PI;
         let r = rand::random::<f64>().sqrt();
         vec3(r * theta.cos(), r * theta.sin(), 0.0)
