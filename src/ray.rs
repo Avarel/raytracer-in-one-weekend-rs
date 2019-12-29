@@ -1,6 +1,7 @@
 use crate::vec3::Vec3;
 use std::ops::{Add, Mul};
 
+// A ray with an origin and direction vector.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Ray<T> {
     pub origin: Vec3<T>,

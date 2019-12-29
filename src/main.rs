@@ -2,7 +2,6 @@ mod camera;
 mod material;
 mod model;
 mod ray;
-mod sphere;
 mod vec3;
 
 use camera::Camera;
@@ -20,6 +19,7 @@ use rayon::prelude::*;
 use std::io;
 
 fn main() -> io::Result<()> {
+    // Construct the scene.
     let mat_1 = Material::lambertian(vec3(0.1, 0.2, 0.5));
     let mat_2 = Material::lambertian(vec3(0.8, 0.8, 0.0));
     let mat_3 = Material::metal(vec3(0.8, 0.6, 0.2), 0.0);
@@ -34,17 +34,19 @@ fn main() -> io::Result<()> {
         Model::sphere(vec3(-1.0, 5.0, -1.0), 0.40, &mat_5),
     ]);
 
+    // Image parameters.
     let nx = 900u32;
     let ny = 600u32;
-    let ns = 500u32;
+    let ns = 1000u32;
 
+    // Rendering progress bar stuff.
     let total_size = nx * ny;
-
     let pb = ProgressBar::new(total_size.into());
     pb.set_style(ProgressStyle::default_bar()
         .template("Rendering {spinner:.green} [{elapsed_precise}] {percent:>3}% [{bar:40.cyan/blue}] {pos}/{len} pixels ({per_sec} | {eta})")
         .progress_chars("#>-"));
 
+    // Setting up the camera.
     let look_from = vec3(-3.0, 3.0, 2.0);
     let look_at = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (look_from - look_at).length();
@@ -59,7 +61,13 @@ fn main() -> io::Result<()> {
         dist_to_focus,
     );
 
-    let vec = (0..ny)
+    let mut buf: RgbImage = ImageBuffer::new(nx, ny);
+
+    // use std::cell::UnsafeCell;
+
+    // let buf: UnsafeCell<RgbImage> = UnsafeCell::new(ImageBuffer::new(nx, ny));
+
+    (0..ny)
         .into_par_iter()
         .flat_map(|j| {
             (0..nx)
@@ -82,20 +90,11 @@ fn main() -> io::Result<()> {
                 })
                 .collect::<Vec<_>>()
         })
-        .collect::<Vec<_>>();
-
-    println!("Rendering complete!");
-
-    let mut buf: RgbImage = ImageBuffer::new(nx, ny);
-
-    println!("Writing to file...");
-
-    vec.into_iter()
+        .collect::<Vec<_>>().into_iter()
         .for_each(|(x, y, pixel)| buf.put_pixel(x, y, pixel));
+        // .for_each(|(x, y, pixel)| unsafe { &mut *buf.get() }.put_pixel(x, y, pixel));
 
-    buf.save("./output/default.png")?;
-
-    println!("Write complete!");
+    // unsafe { &*buf.get() }.save("./output/default.png")?;
 
     Ok(())
 }

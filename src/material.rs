@@ -2,11 +2,17 @@ use crate::model::Hit;
 use crate::ray::Ray;
 use crate::vec3::{vec3, Vec3};
 
+// If this is returned, then it means that the light bounced off the
+// material with a certain direction and some attenuation.
 pub struct Scatter {
+    // The direction of the bounced ray of light.
     pub scattered: Ray<f64>,
+    // The vector representing the RGB emitted
+    // after a bounce on the material.
     pub attenuation: Vec3<f64>,
 }
 
+// Material enum, using this so we can avoid dynamic dispatch.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Material {
@@ -17,22 +23,29 @@ pub enum Material {
 }
 
 impl Material {
+    // Convenience method to construct a lambertian reflectance
+    // or matte material.
     pub fn lambertian(albedo: Vec3<f64>) -> Self {
         Self::Lambertian(Lambertian::new(albedo))
     }
 
+    // Convenience method to construct a reflective or metal material.
     pub fn metal(albedo: Vec3<f64>, fuzz: f64) -> Self {
         Self::Metal(Metal::new(albedo, fuzz))
     }
 
+    // Convenience method to construct a dielectric or glass material.
     pub fn dielectric(ref_idx: f64) -> Self {
         Self::Dielectric(Dielectric::new(ref_idx))
     }
 
+    // Convenience method to construct a diffuse light material.
     pub fn diffuse_light(emittance: Vec3<f64>) -> Self {
         Self::DiffuseLight(DiffuseLight::new(emittance))
     }
 
+    // Process an incoming ray and return an option indicating if that ray
+    // has been scattered or completely absorbed.
     pub fn scatter(&self, r_in: Ray<f64>, rec: &Hit<f64>) -> Option<Scatter> {
         match self {
             Material::Lambertian(mat) => mat.scatter(r_in, rec),
@@ -42,6 +55,9 @@ impl Material {
         }
     }
 
+    // Get what the material emits.
+    // This method assumes that the ray has already hit the object with
+    // this material.
     pub fn emit(&self, rec: Hit<f64>) -> Vec3<f64> {
         match self {
             Material::DiffuseLight(mat) => mat.emit(rec),
@@ -50,21 +66,29 @@ impl Material {
     }
 }
 
+// Generate a random point *inside* a unit sphere.
 fn random_in_unit_sphere() -> Vec3<f64> {
-    let mut position: Vec3<f64>;
-
-    position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - Vec3::ID;
-    while position.squared_length() >= 1.0 {
-        position = vec3(rand::random(), rand::random(), rand::random()) * 2.0 - Vec3::ID;
-    }
-
-    position
+    let u = rand::random::<f64>();
+    let v = rand::random::<f64>();
+    let theta = u * 2.0 * std::f64::consts::PI;
+    let phi = (2.0 * v - 1.0).acos();
+    let r = rand::random::<f64>().cbrt();
+    let sin_theta = theta.sin();
+    let cos_theta = theta.cos();
+    let sin_phi = phi.sin();
+    let cos_phi = phi.cos();
+    let x = r * sin_phi * cos_theta;
+    let y = r * sin_phi * sin_theta;
+    let z = r * cos_phi;
+    vec3(x, y, z)
 }
 
+// Return a reflected direction given a normal direction on the object.
 fn reflect(v: Vec3<f64>, normal: Vec3<f64>) -> Vec3<f64> {
     v - v.dot(normal) * normal * 2.0
 }
 
+// Lambertian reflective or matte material.
 #[derive(Debug)]
 pub struct Lambertian {
     albedo: Vec3<f64>,
@@ -85,6 +109,7 @@ impl Lambertian {
     }
 }
 
+// Reflective or metal material.
 #[derive(Debug)]
 pub struct Metal {
     albedo: Vec3<f64>,
@@ -113,6 +138,7 @@ impl Metal {
     }
 }
 
+// Dielectric or glass-like material.
 #[derive(Debug)]
 pub struct Dielectric {
     // Refraction index
@@ -176,6 +202,7 @@ impl Dielectric {
     }
 }
 
+// Diffuse light-emitting material.
 #[derive(Debug)]
 pub struct DiffuseLight {
     emittance: Vec3<f64>,

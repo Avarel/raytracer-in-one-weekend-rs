@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign, Neg};
 
+// A vector with three components.
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct Vec3<T> {
     pub x: T,
@@ -7,6 +8,7 @@ pub struct Vec3<T> {
     pub z: T,
 }
 
+// Convenience method to construct a vector.
 #[inline]
 pub fn vec3<T>(x: T, y: T, z: T) -> Vec3<T> {
     Vec3::new(x, y, z)

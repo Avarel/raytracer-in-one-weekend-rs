@@ -14,12 +14,19 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(
+        // Position of the camera.
         look_from: Vec3<f64>,
+        // The position the camera is focusing on.
         look_at: Vec3<f64>,
+        // Up reference vector.
         v_up: Vec3<f64>,
+        // Vertical
         v_fov: f64,
+        // Aspect ratio.
         aspect: f64,
+        // Set aperture to 0 to disable depth of field.
         aperture: f64,
+        // Focus distance.
         focus_dist: f64,
     ) -> Self {
         let theta = v_fov.to_radians();
@@ -53,11 +60,8 @@ impl Camera {
     }
 
     fn random_in_unit_disk() -> Vec3<f64> {
-        let mut p;
-        p = vec3(rand::random(), rand::random(), 0.0) - vec3(1.0, 1.0, 0.0);
-        while p.dot(p) >= 1.0 {
-            p = vec3(rand::random(), rand::random(), 0.0) - vec3(1.0, 1.0, 0.0);
-        }
-        p
+        let theta = rand::random::<f64>() * 2.0 * std::f64::consts::PI;
+        let r = rand::random::<f64>().sqrt();
+        vec3(r * theta.cos(), r * theta.sin(), 0.0)
     }
 }
