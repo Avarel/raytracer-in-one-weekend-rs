@@ -1,5 +1,5 @@
 use crate::ray::Ray;
-use crate::vec3::{vec3, Vec3};
+use ultraviolet::vec::Vec3;
 
 pub struct Camera {
     top_left_corner: Vec3,
@@ -33,8 +33,8 @@ impl Camera {
         let half_height = (theta / 2.0).tan();
         let half_width = aspect * half_height;
 
-        let w = (look_from - look_at).unit();
-        let u = v_up.cross(w).unit();
+        let w = (look_from - look_at).normalized();
+        let u = v_up.cross(w).normalized();
         let v = w.cross(u);
 
         Self {
@@ -62,6 +62,6 @@ impl Camera {
     fn random_in_unit_disk() -> Vec3 {
         let theta = rand::random::<f32>() * 2.0 * std::f32::consts::PI;
         let r = rand::random::<f32>().sqrt();
-        vec3(r * theta.cos(), r * theta.sin(), 0.0)
+        Vec3::new(r * theta.cos(), r * theta.sin(), 0.0)
     }
 }

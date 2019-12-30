@@ -1,6 +1,6 @@
 use crate::material::Material;
 use crate::ray::Ray;
-use crate::vec3::Vec3;
+use ultraviolet::vec::Vec3;
 
 // If this is returned, then it means that the ray of light hit the object
 // for some parameter at a point. The normal and material of the object

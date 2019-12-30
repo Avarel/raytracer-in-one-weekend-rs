@@ -1,6 +1,6 @@
 use crate::model::Hit;
 use crate::ray::Ray;
-use crate::vec3::{vec3, Vec3};
+use ultraviolet::vec::Vec3;
 
 // If this is returned, then it means that the light bounced off the
 // material with a certain direction and some attenuation.
@@ -13,10 +13,12 @@ pub struct Scatter {
 }
 
 impl Scatter {
-    pub const ZERO: Scatter = Scatter {
-        scattered: Ray::ZERO,
-        attenuation: Vec3::ZERO,
-    };
+    pub fn zero() -> Self {
+        Self {
+            scattered: Ray::zero(),
+            attenuation: Vec3::zero(),
+        }
+    }
 }
 
 // Material enum, using this so we can avoid dynamic dispatch.
@@ -58,7 +60,7 @@ impl Material {
             Material::Lambertian(mat) => mat.scatter(r_in, rec),
             Material::Metal(mat) => mat.scatter(r_in, rec),
             Material::Dielectric(mat) => mat.scatter(r_in, rec),
-            _ => Scatter::ZERO,
+            _ => Scatter::zero(),
         }
     }
 
@@ -68,7 +70,7 @@ impl Material {
     pub fn emit(&self, rec: Hit) -> Vec3 {
         match self {
             Material::DiffuseLight(mat) => mat.emit(rec),
-            _ => Vec3::ZERO
+            _ => Vec3::zero()
         }
     }
 }
@@ -87,7 +89,7 @@ fn random_in_unit_sphere() -> Vec3 {
     let x = r * sin_phi * cos_theta;
     let y = r * sin_phi * sin_theta;
     let z = r * cos_phi;
-    vec3(x, y, z)
+    Vec3::new(x, y, z)
 }
 
 // Return a reflected direction given a normal direction on the object.
@@ -132,7 +134,7 @@ impl Metal {
     }
 
     pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
-        let target = reflect(r_in.direction.unit(), rec.normal);
+        let target = reflect(r_in.direction.normalized(), rec.normal);
         let scattered = Ray::new(rec.point, target + random_in_unit_sphere() * self.fuzz);
         if scattered.direction.dot(rec.normal) > 0.0 {
             Scatter {
@@ -140,7 +142,7 @@ impl Metal {
                 attenuation: self.albedo,
             }
         } else {
-            Scatter::ZERO
+            Scatter::zero()
         }
     }
 }
@@ -165,12 +167,12 @@ impl Dielectric {
         if r_in.direction.dot(rec.normal) > 0.0 {
             outward_normal = -rec.normal;
             ni_over_nt = self.ref_idx;
-            let _cosine = r_in.direction.dot(rec.normal) / r_in.direction.length();
+            let _cosine = r_in.direction.dot(rec.normal) / r_in.direction.mag();
             cosine = (1.0 - self.ref_idx * self.ref_idx * (1.0 - _cosine * _cosine)).sqrt();
         } else {
             outward_normal = rec.normal;
             ni_over_nt = 1.0 / self.ref_idx;
-            cosine = -r_in.direction.dot(rec.normal) / r_in.direction.length();
+            cosine = -r_in.direction.dot(rec.normal) / r_in.direction.mag();
         }
 
         let refract_result = Self::refract(r_in.direction, outward_normal, ni_over_nt);
@@ -187,7 +189,7 @@ impl Dielectric {
             } else {
                 Ray::new(rec.point, refract_result.unwrap_or_default())
             },
-            attenuation: Vec3::ID,
+            attenuation: Vec3::one(),
         }
     }
 
@@ -198,7 +200,7 @@ impl Dielectric {
     }
 
     fn refract(v: Vec3, normal: Vec3, ni_over_nt: f32) -> Option<Vec3> {
-        let uv = v.unit();
+        let uv = v.normalized();
         let dt = uv.dot(normal);
         let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
         if discriminant > 0.0 {
