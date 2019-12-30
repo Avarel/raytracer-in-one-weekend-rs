@@ -17,7 +17,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
 use std::io;
-use std::convert::TryFrom;
 
 fn main() -> io::Result<()> {
     // Construct the scene.
@@ -31,6 +30,7 @@ fn main() -> io::Result<()> {
         Model::sphere(vec3(0.0, -100.5, -1.0), 100.0, &mat_2),
         Model::sphere(vec3(1.0, 0.0, -1.0), 0.5, &mat_3),
         Model::sphere(vec3(0.0, 0.0, -2.0), 0.5, &mat_4),
+        Model::sphere(vec3(0.0, 0.0, -2.0), -0.4, &mat_4),
         Model::sphere(vec3(-1.0, 0.0, -1.0), 0.40, &mat_5),
         Model::sphere(vec3(-1.0, 5.0, -1.0), 0.40, &mat_5),
     ]);
@@ -57,7 +57,7 @@ fn main() -> io::Result<()> {
         look_at,
         vec3(0.0, 1.0, 0.0),
         20.0,
-        f64::from(nx) / f64::from(ny),
+        nx as f32 / ny as f32,
         aperture,
         dist_to_focus,
     );
@@ -69,23 +69,22 @@ fn main() -> io::Result<()> {
         .flat_map(|j| {
             (0..nx)
                 .into_par_iter()
-                .map(|i| {
+                .map_with(j, |&mut j, i| {
                     let mut col = (0..ns)
                         .into_par_iter()
                         .map(|_| {
                             (
-                                (f64::from(i) + rand::random::<f64>()) / f64::from(nx),
-                                (f64::from(j) + rand::random::<f64>()) / f64::from(ny),
+                                (i as f32 + rand::random::<f32>()) / (nx as f32),
+                                (j as f32 + rand::random::<f32>()) / (ny as f32),
                             )
                         })
                         .map(|(u, v)| camera.get_ray(u, v))
-                        .map(|ray| color(ray, &world))
+                        .map(|ray| color(ray, &world, 50))
                         .reduce(|| Vec3::ZERO, |a, b| a + b);
-                    pb.inc(1);
-                    col = 255.99 * (col / f64::from(ns)).sqrt().coerce();
+                    col = 255.99 * (col / (ns as f32)).sqrt().coerce();
                     (i, j, Rgb([col.x as u8, col.y as u8, col.z as u8]))
                 })
-                .collect::<Vec<_>>()
+                .inspect(|_| pb.inc(1))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -96,29 +95,36 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn color(mut ray: Ray, world: &Model) -> Vec3 {
+fn color(mut ray: Ray, world: &Model, max_bounce: i32) -> Vec3 {
     let mut factor = Vec3::ID;
     let mut emit = Vec3::ZERO;
-    let depth = 0;
+    let mut bounces = 0;
 
-    while let Some(rec) = world.hit(&ray, 0.00001, std::f64::MAX) {
-        if depth >= 50 {
-            return Vec3::ZERO;
+    while let Some(rec) = world.hit(&ray, 0.00001, std::f32::MAX) {
+        // Maximum number of bounces. If exceeded, return the
+        // result of all interactions so far with the scene.
+        if bounces >= max_bounce {
+            break;
         }
 
+        // Get the scattering result from interacting with
+        // the material of the object.
         let Scatter {
             scattered,
             attenuation,
         } = rec.material.scatter(ray, &rec);
 
+        // If the ray is completely absorbed, then the only
+        // light that could possibly reach the camera is what the
+        // material emits.
         if scattered == Ray::ZERO || attenuation == Vec3::ZERO {
             return factor * rec.material.emit(rec);
         }
 
         ray = scattered;
         factor *= attenuation;
-
         emit += rec.material.emit(rec);
+        bounces += 1;
     }
 
     // let unit_direction = ray.direction.unit();

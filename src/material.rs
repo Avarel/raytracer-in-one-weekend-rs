@@ -37,12 +37,12 @@ impl Material {
     }
 
     // Convenience method to construct a reflective or metal material.
-    pub fn metal(albedo: Vec3, fuzz: f64) -> Self {
+    pub fn metal(albedo: Vec3, fuzz: f32) -> Self {
         Self::Metal(Metal::new(albedo, fuzz))
     }
 
     // Convenience method to construct a dielectric or glass material.
-    pub fn dielectric(ref_idx: f64) -> Self {
+    pub fn dielectric(ref_idx: f32) -> Self {
         Self::Dielectric(Dielectric::new(ref_idx))
     }
 
@@ -75,11 +75,11 @@ impl Material {
 
 // Generate a random point *inside* a unit sphere.
 fn random_in_unit_sphere() -> Vec3 {
-    let u = rand::random::<f64>();
-    let v = rand::random::<f64>();
-    let theta = u * 2.0 * std::f64::consts::PI;
+    let u = rand::random::<f32>();
+    let v = rand::random::<f32>();
+    let theta = u * 2.0 * std::f32::consts::PI;
     let phi = (2.0 * v - 1.0).acos();
-    let r = rand::random::<f64>().cbrt();
+    let r = rand::random::<f32>().cbrt();
     let sin_theta = theta.sin();
     let cos_theta = theta.cos();
     let sin_phi = phi.sin();
@@ -120,11 +120,11 @@ impl Lambertian {
 #[derive(Debug)]
 pub struct Metal {
     albedo: Vec3,
-    fuzz: f64,
+    fuzz: f32,
 }
 
 impl Metal {
-    pub fn new(albedo: Vec3, fuzz: f64) -> Self {
+    pub fn new(albedo: Vec3, fuzz: f32) -> Self {
         Self {
             albedo,
             fuzz: if fuzz < 1.0 { fuzz } else { 1.0 },
@@ -149,11 +149,11 @@ impl Metal {
 #[derive(Debug)]
 pub struct Dielectric {
     // Refraction index
-    ref_idx: f64,
+    ref_idx: f32,
 }
 
 impl Dielectric {
-    pub fn new(ref_idx: f64) -> Self {
+    pub fn new(ref_idx: f32) -> Self {
         Self { ref_idx }
     }
 
@@ -182,7 +182,7 @@ impl Dielectric {
         };
 
         Scatter {
-            scattered: if rand::random::<f64>() < reflect_probability {
+            scattered: if rand::random::<f32>() < reflect_probability {
                 Ray::new(rec.point, reflect(r_in.direction, rec.normal))
             } else {
                 Ray::new(rec.point, refract_result.unwrap_or_default())
@@ -191,13 +191,13 @@ impl Dielectric {
         }
     }
 
-    fn schlick(cosine: f64, ref_idx: f64) -> f64 {
+    fn schlick(cosine: f32, ref_idx: f32) -> f32 {
         let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
         let r0 = r0 * r0;
         r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
     }
 
-    fn refract(v: Vec3, normal: Vec3, ni_over_nt: f64) -> Option<Vec3> {
+    fn refract(v: Vec3, normal: Vec3, ni_over_nt: f32) -> Option<Vec3> {
         let uv = v.unit();
         let dt = uv.dot(normal);
         let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
