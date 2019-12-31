@@ -9,7 +9,7 @@ pub struct Hit<'mat> {
     pub parameter: f32,
     pub point: Vec3,
     pub normal: Vec3,
-    pub material: &'mat Material,
+    pub material: &'mat Material<'mat>,
 }
 
 // 3D model enumeration to avoid dynamic dispatch.
@@ -56,7 +56,7 @@ impl<'mat> Model<'mat> {
 pub struct Sphere<'mat> {
     center: Vec3,
     radius: f32,
-    material: &'mat Material,
+    material: &'mat Material<'mat>,
 }
 
 impl<'mat> Sphere<'mat> {

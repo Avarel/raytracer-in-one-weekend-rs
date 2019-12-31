@@ -1,14 +1,17 @@
 use crate::model::Hit;
 use crate::ray::Ray;
-use crate::vec3::{vec3, Vec3};
+use crate::vec3::Vec3;
 
-// If this is returned, then it means that the light bounced off the
-// material with a certain direction and some attenuation.
+/// The result of calculations of a ray hitting and bouncing off a
+/// material with a certain direction and some attenuation.
+///
+/// # Note
+/// Both `scattered` and `attenuation` can be zero.
 pub struct Scatter {
-    // The direction of the bounced ray of light.
+    /// The direction of the bounced ray of light.
     pub scattered: Ray,
-    // The vector representing the RGB emitted
-    // after a bounce on the material.
+    /// The vector representing the RGB emitted
+    /// after a bounce on the material.
     pub attenuation: Vec3,
 }
 
@@ -19,83 +22,70 @@ impl Scatter {
     };
 }
 
-// Material enum, using this so we can avoid dynamic dispatch.
+// Material enum so we can avoid dynamic dispatch.
+/// Material enumeration.
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Material {
+pub enum Material<'mat> {
     Lambertian(Lambertian),
     Metal(Metal),
     Dielectric(Dielectric),
     DiffuseLight(DiffuseLight),
+    Combined {
+        scatterer: &'mat Material<'mat>,
+        emitter: &'mat Material<'mat>,
+    },
 }
 
-impl Material {
-    // Convenience method to construct a lambertian reflectance
-    // or matte material.
+impl Material<'_> {
+    /// Convenience method to construct a lambertian reflective
+    /// or matte material.
     pub fn lambertian(albedo: Vec3) -> Self {
         Self::Lambertian(Lambertian::new(albedo))
     }
 
-    // Convenience method to construct a reflective or metal material.
+    /// Convenience method to construct a reflective or metal material.
     pub fn metal(albedo: Vec3, fuzz: f32) -> Self {
         Self::Metal(Metal::new(albedo, fuzz))
     }
 
-    // Convenience method to construct a dielectric or glass material.
+    /// Convenience method to construct a dielectric or glass material.
     pub fn dielectric(ref_idx: f32) -> Self {
         Self::Dielectric(Dielectric::new(ref_idx))
     }
 
-    // Convenience method to construct a diffuse light material.
+    /// Convenience method to construct a diffuse light material.
     pub fn diffuse_light(emittance: Vec3) -> Self {
         Self::DiffuseLight(DiffuseLight::new(emittance))
     }
 
-    // Process an incoming ray and return an option indicating if that ray
-    // has been scattered or completely absorbed.
+    /// Process an incoming ray and return an option indicating if that ray
+    /// has been scattered or completely absorbed.
     pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
         match self {
             Material::Lambertian(mat) => mat.scatter(r_in, rec),
             Material::Metal(mat) => mat.scatter(r_in, rec),
             Material::Dielectric(mat) => mat.scatter(r_in, rec),
+            Material::Combined { scatterer, .. } => scatterer.scatter(r_in, rec),
             _ => Scatter::ZERO,
         }
     }
 
-    // Get what the material emits.
-    // This method assumes that the ray has already hit the object with
-    // this material.
+    /// Get what the material emits.
+    ///
+    /// # Assumptions
+    /// This method assumes that the ray has already hit the object with
+    /// this material.
     pub fn emit(&self, rec: Hit) -> Vec3 {
         match self {
             Material::DiffuseLight(mat) => mat.emit(rec),
-            _ => Vec3::ZERO
+            Material::Combined { emitter, .. } => emitter.emit(rec),
+            _ => Vec3::ZERO,
         }
     }
 }
 
-// Generate a random point *inside* a unit sphere.
-fn random_in_unit_sphere() -> Vec3 {
-    let u = rand::random::<f32>();
-    let v = rand::random::<f32>();
-    let theta = u * 2.0 * std::f32::consts::PI;
-    let phi = (2.0 * v - 1.0).acos();
-    let r = rand::random::<f32>().cbrt();
-    let sin_theta = theta.sin();
-    let cos_theta = theta.cos();
-    let sin_phi = phi.sin();
-    let cos_phi = phi.cos();
-    let x = r * sin_phi * cos_theta;
-    let y = r * sin_phi * sin_theta;
-    let z = r * cos_phi;
-    vec3(x, y, z)
-}
-
-// Return a reflected direction given a normal direction on the object.
-fn reflect(v: Vec3, normal: Vec3) -> Vec3 {
-    v - v.dot(normal) * normal * 2.0
-}
-
-// Lambertian reflective or matte material.
+/// Lambertian reflective or matte material.
 #[derive(Debug)]
 pub struct Lambertian {
     albedo: Vec3,
@@ -107,7 +97,7 @@ impl Lambertian {
     }
 
     pub fn scatter(&self, _: Ray, rec: &Hit) -> Scatter {
-        let target = rec.point + rec.normal + random_in_unit_sphere();
+        let target = rec.point + rec.normal + rand::random::<Vec3>();
         let scattered = Ray::new(rec.point, target - rec.point);
         Scatter {
             scattered,
@@ -116,7 +106,7 @@ impl Lambertian {
     }
 }
 
-// Reflective or metal material.
+/// Reflective or metal material.
 #[derive(Debug)]
 pub struct Metal {
     albedo: Vec3,
@@ -132,8 +122,10 @@ impl Metal {
     }
 
     pub fn scatter(&self, r_in: Ray, rec: &Hit) -> Scatter {
-        let target = reflect(r_in.direction.unit(), rec.normal);
-        let scattered = Ray::new(rec.point, target + random_in_unit_sphere() * self.fuzz);
+        let target = r_in
+            .direction /*.normalize()*/
+            .reflect(rec.normal);
+        let scattered = Ray::new(rec.point, target + rand::random::<Vec3>() * self.fuzz);
         if scattered.direction.dot(rec.normal) > 0.0 {
             Scatter {
                 scattered,
@@ -145,7 +137,7 @@ impl Metal {
     }
 }
 
-// Dielectric or glass-like material.
+/// Dielectric or glass-like material.
 #[derive(Debug)]
 pub struct Dielectric {
     // Refraction index
@@ -165,12 +157,12 @@ impl Dielectric {
         if r_in.direction.dot(rec.normal) > 0.0 {
             outward_normal = -rec.normal;
             ni_over_nt = self.ref_idx;
-            let _cosine = r_in.direction.dot(rec.normal) / r_in.direction.length();
+            let _cosine = r_in.direction.dot(rec.normal) / r_in.direction.mag();
             cosine = (1.0 - self.ref_idx * self.ref_idx * (1.0 - _cosine * _cosine)).sqrt();
         } else {
             outward_normal = rec.normal;
             ni_over_nt = 1.0 / self.ref_idx;
-            cosine = -r_in.direction.dot(rec.normal) / r_in.direction.length();
+            cosine = -r_in.direction.dot(rec.normal) / r_in.direction.mag();
         }
 
         let refract_result = Self::refract(r_in.direction, outward_normal, ni_over_nt);
@@ -183,11 +175,11 @@ impl Dielectric {
 
         Scatter {
             scattered: if rand::random::<f32>() < reflect_probability {
-                Ray::new(rec.point, reflect(r_in.direction, rec.normal))
+                Ray::new(rec.point, r_in.direction.reflect(rec.normal))
             } else {
                 Ray::new(rec.point, refract_result.unwrap_or_default())
             },
-            attenuation: Vec3::ID,
+            attenuation: Vec3::ONE,
         }
     }
 
@@ -198,7 +190,7 @@ impl Dielectric {
     }
 
     fn refract(v: Vec3, normal: Vec3, ni_over_nt: f32) -> Option<Vec3> {
-        let uv = v.unit();
+        let uv = v.normalize();
         let dt = uv.dot(normal);
         let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
         if discriminant > 0.0 {

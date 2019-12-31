@@ -33,8 +33,8 @@ impl Camera {
         let half_height = (theta / 2.0).tan();
         let half_width = aspect * half_height;
 
-        let w = (look_from - look_at).unit();
-        let u = v_up.cross(w).unit();
+        let w = (look_from - look_at).normalize();
+        let u = v_up.cross(w).normalize();
         let v = w.cross(u);
 
         Self {
